@@ -1,0 +1,280 @@
+/* panel.css — GitHub Agent side panel styles */
+
+/* ── Variables ──────────────────────────────────────────────────── */
+:root {
+  --ga-width: 360px;
+  --ga-bg: #ffffff;
+  --ga-border: #d0d7de;
+  --ga-header-bg: #f6f8fa;
+  --ga-text-primary: #1f2328;
+  --ga-text-secondary: #636c76;
+  --ga-accent: #0969da;
+  --ga-accent-hover: #0550ae;
+  --ga-input-bg: #ffffff;
+  --ga-input-border: #d0d7de;
+  --ga-input-focus: #0969da;
+  --ga-badge-bg: #ddf4ff;
+  --ga-badge-text: #0550ae;
+  --ga-toggle-bg: #1f2328;
+  --ga-toggle-text: #ffffff;
+  --ga-toggle-shadow: rgba(0,0,0,0.3);
+  --ga-radius: 8px;
+  --ga-transition: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark mode — respects GitHub's data-color-mode attribute */
+[data-color-mode="dark"] {
+  --ga-bg: #161b22;
+  --ga-border: #30363d;
+  --ga-header-bg: #0d1117;
+  --ga-text-primary: #e6edf3;
+  --ga-text-secondary: #7d8590;
+  --ga-accent: #58a6ff;
+  --ga-accent-hover: #79c0ff;
+  --ga-input-bg: #0d1117;
+  --ga-input-border: #30363d;
+  --ga-input-focus: #58a6ff;
+  --ga-badge-bg: #388bfd1a;
+  --ga-badge-text: #58a6ff;
+  --ga-toggle-bg: #58a6ff;
+  --ga-toggle-text: #0d1117;
+  --ga-toggle-shadow: rgba(0,0,0,0.6);
+}
+
+/* ── Body shift when panel is open ──────────────────────────────── */
+body.gh-agent-body-shifted {
+  margin-right: var(--ga-width) !important;
+  transition: margin-right var(--ga-transition);
+}
+
+/* ── Toggle button ───────────────────────────────────────────────── */
+#gh-agent-toggle {
+  position: fixed;
+  bottom: 32px;
+  right: 20px;
+  z-index: 9999;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--ga-toggle-bg);
+  color: var(--ga-toggle-text);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px var(--ga-toggle-shadow);
+  transition:
+    transform var(--ga-transition),
+    background var(--ga-transition),
+    box-shadow var(--ga-transition),
+    right var(--ga-transition);
+}
+
+#gh-agent-toggle svg {
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+}
+
+#gh-agent-toggle:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px var(--ga-toggle-shadow);
+}
+
+#gh-agent-toggle.gh-agent-toggle-active {
+  right: calc(var(--ga-width) + 14px);
+  background: var(--ga-accent);
+}
+
+/* ── Side panel ──────────────────────────────────────────────────── */
+#gh-agent-root {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: var(--ga-width);
+  height: 100vh;
+  z-index: 9998;
+  background: var(--ga-bg);
+  border-left: 1px solid var(--ga-border);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform var(--ga-transition);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  color: var(--ga-text-primary);
+}
+
+#gh-agent-root.gh-agent-open {
+  transform: translateX(0);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.10);
+}
+
+/* ── Header ──────────────────────────────────────────────────────── */
+#gh-agent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--ga-header-bg);
+  border-bottom: 1px solid var(--ga-border);
+  flex-shrink: 0;
+}
+
+#gh-agent-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ga-text-primary);
+}
+
+#gh-agent-title svg {
+  flex-shrink: 0;
+  color: var(--ga-accent);
+}
+
+#gh-agent-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  background: var(--ga-badge-bg);
+  color: var(--ga-badge-text);
+  padding: 2px 7px;
+  border-radius: 20px;
+}
+
+/* ── Context bar ─────────────────────────────────────────────────── */
+#gh-agent-context-bar {
+  padding: 7px 16px;
+  background: var(--ga-header-bg);
+  border-bottom: 1px solid var(--ga-border);
+  flex-shrink: 0;
+}
+
+#gh-agent-repo-label {
+  font-size: 11px;
+  color: var(--ga-text-secondary);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+#gh-agent-repo-label.has-repo {
+  color: var(--ga-accent);
+}
+
+/* ── Messages body ───────────────────────────────────────────────── */
+#gh-agent-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#gh-agent-messages {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.gh-agent-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--ga-text-secondary);
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.gh-agent-empty-state svg {
+  opacity: 0.35;
+}
+
+.gh-agent-empty-state p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* ── Footer / input area ─────────────────────────────────────────── */
+#gh-agent-footer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 14px 16px;
+  border-top: 1px solid var(--ga-border);
+  background: var(--ga-bg);
+  flex-shrink: 0;
+}
+
+#gh-agent-input {
+  flex: 1;
+  background: var(--ga-input-bg);
+  border: 1px solid var(--ga-input-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ga-text-primary);
+  resize: none;
+  line-height: 1.5;
+  overflow-y: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+  min-height: 36px;
+}
+
+#gh-agent-input::placeholder {
+  color: var(--ga-text-secondary);
+}
+
+#gh-agent-input:focus {
+  border-color: var(--ga-input-focus);
+  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.15);
+}
+
+[data-color-mode="dark"] #gh-agent-input:focus {
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+}
+
+#gh-agent-submit {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: var(--ga-accent);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, opacity 0.15s, transform 0.1s;
+}
+
+#gh-agent-submit:hover:not(:disabled) {
+  background: var(--ga-accent-hover);
+  transform: scale(1.04);
+}
+
+#gh-agent-submit:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────── */
+#gh-agent-body::-webkit-scrollbar {
+  width: 5px;
+}
+#gh-agent-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+#gh-agent-body::-webkit-scrollbar-thumb {
+  background: var(--ga-border);
+  border-radius: 3px;
+}

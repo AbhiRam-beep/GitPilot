@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub Agent",
+  "version": "1.0.0",
+  "description": "AI agent side panel for GitHub repositories",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://github.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*"],
+      "js": ["content.js"],
+      "css": ["panel.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
