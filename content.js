@@ -136,39 +136,45 @@
       });
 
       const reader = res.body.getReader();
-const decoder = new TextDecoder();
+      const decoder = new TextDecoder();
 
-let fullResponse = "";
+      // Replace the current stream reading block with this:
+      let finalAnswer = "";
+      let isAnswer = false;
 
-while (true) {
-  const { done, value } = await reader.read();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-  if (done) break;
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n").filter(line => line.startsWith("data:"));
 
-  const chunk = decoder.decode(value);
+        for (const line of lines) {
+          const message = line.replace("data:", "").trim();
+          if (!message) continue;
 
-  const lines = chunk
-    .split("\n")
-    .filter(line => line.startsWith("data:"));
+          if (message.startsWith("✅ Done")) {
+            isAnswer = true;
+            continue;
+          }
 
-  for (const line of lines) {
-    const message = line.replace("data:", "").trim();
+          if (isAnswer) {
+            finalAnswer += message.replace(/<br>/g, "\n") + "\n";
+            loadingEl.textContent = finalAnswer;
+          } else {
+            // Status messages — show them as loading indicator
+            loadingEl.textContent = message;
+          }
 
-    if (!message) continue;
+          const container = document.getElementById('gh-agent-messages');
+          container.scrollTop = container.scrollHeight;
+        }
+      }
 
-    fullResponse += message + "\n";
-
-    loadingEl.textContent = fullResponse;
-
-    const container = document.getElementById('gh-agent-messages');
-    container.scrollTop = container.scrollHeight;
-  }
-}
-
-conversationHistory.push(
-  { role: 'user', content: query },
-  { role: 'assistant', content: fullResponse }
-);
+      conversationHistory.push(
+        { role: 'user', content: query },
+        { role: 'assistant', content: finalAnswer }
+      );
 
     } catch (err) {
       loadingEl.textContent = 'Error reaching agent backend.';

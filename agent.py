@@ -1,17 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from openai import OpenAI
 from dotenv import load_dotenv
 from fastapi.responses import StreamingResponse
 import os
 import httpx
 import base64
-
-# ── Load .env ─────────────────────────────────────────────
+import asyncio
 load_dotenv()
+from google import genai
+from google.genai import types
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-client = OpenAI(api_key=os.getenv("OpenAIAPIKEY"))
 
 app = FastAPI()
 
@@ -26,7 +26,10 @@ app.add_middleware(
 )
 # ── GitHub helpers ────────────────────────────────────────
 
-GITHUB_HEADERS = {"Accept": "application/vnd.github+json"}
+GITHUB_HEADERS = {
+    "Accept": "application/vnd.github+json",
+    "Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}"
+}
 
 async def get_file_tree(owner: str, repo: str) -> list[str]:
     url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/HEAD?recursive=1"
@@ -66,44 +69,31 @@ async def search_code(owner: str, repo: str, query: str) -> list[str]:
 # ── Tools schema (OpenAI format) ──────────────────────────
 
 TOOLS = [
-    {
-        "type": "function",
-        "name": "get_file_tree",
-        "description": "Get all file paths in the repo.",
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
-    },
-    {
-        "type": "function",
-        "name": "read_file",
-        "description": "Read a file from repo.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string"
-                }
-            },
-            "required": ["path"]
-        }
-    },
-    {
-        "type": "function",
-        "name": "search_code",
-        "description": "Search code in repo.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string"
-                }
-            },
-            "required": ["query"]
-        }
-    }
+    types.Tool(function_declarations=[
+        types.FunctionDeclaration(
+            name="get_file_tree",
+            description="Get all file paths in the repo.",
+            parameters=types.Schema(type="OBJECT", properties={})
+        ),
+        types.FunctionDeclaration(
+            name="read_file",
+            description="Read a file from repo.",
+            parameters=types.Schema(
+                type="OBJECT",
+                properties={"path": types.Schema(type="STRING")},
+                required=["path"]
+            )
+        ),
+        types.FunctionDeclaration(
+            name="search_code",
+            description="Search code in repo.",
+            parameters=types.Schema(
+                type="OBJECT",
+                properties={"query": types.Schema(type="STRING")},
+                required=["query"]
+            )
+        ),
+    ])
 ]
 
 
@@ -136,58 +126,67 @@ async def execute_tool(name: str, args: dict, owner: str, repo: str):
 async def handlechat(req: ChatRequest):
     owner, repo = req.repo.split("/", 1)
 
+    
     async def event_stream():
-        messages = req.history + [
-            {"role": "user", "content": req.query}
-        ]
+        chat = client.chats.create(
+            model="gemini-2.5-flash",
+            config=types.GenerateContentConfig(
+                tools=TOOLS,
+                system_instruction="""You are a code analysis agent for GitHub repositories.
+    When asked about code, ALWAYS start by calling get_file_tree to see all files.
+    Then call read_file on any files that seem relevant to the question.
+    Only use search_code as a last resort, as it is unreliable.
+    Never say something doesn't exist without first reading the relevant files yourself."""
+            )
+        )
+
+        history_text = ""
+        for msg in req.history:
+            history_text += f"{msg['role']}: {msg['content']}\n"
+
+        first_message = (history_text + f"user: {req.query}") if history_text else req.query
 
         yield "data: 🧠 Starting analysis...\n\n"
+
+        # Send the first message
+        response = chat.send_message(first_message)
 
         for step in range(8):
             yield f"data: 🔍 Thinking step {step + 1}/8...\n\n"
 
-            response = client.responses.create(
-                model="gpt-4.1-mini",
-                input=messages,
-                tools=TOOLS,
-            )
+            # Check for text parts explicitly (avoid the warning)
+            text_parts = [p.text for p in response.candidates[0].content.parts if p.text]
+            function_calls = [p.function_call for p in response.candidates[0].content.parts if p.function_call]
 
-            if response.output_text:
+            if not function_calls:
+                # No tool calls — this is the final answer
+                final = "\n".join(text_parts) if text_parts else "No response generated."
                 yield f"data: ✅ Done\n\n"
-                yield f"data: {response.output_text}\n\n"
+                safe = final.replace("\n", "<br>")
+                yield f"data: {safe}\n\n"
                 return
 
-            for item in response.output:
-                messages.append(item)
+            # Execute all tool calls
+            tool_results = []
+            for fn in function_calls:
+                name = fn.name
+                args = dict(fn.args)
 
-            for item in response.output:
-                if item.type == "function_call":
+                if name == "get_file_tree":
+                    yield "data: 📂 Looking through repository files...\n\n"
+                elif name == "read_file":
+                    yield f"data: 📄 Reading {args.get('path', '')}...\n\n"
+                elif name == "search_code":
+                    yield "data: 🔎 Searching code...\n\n"
 
-                    if item.name == "get_file_tree":
-                        yield "data: 📂 Looking through repository files...\n\n"
+                result = await execute_tool(name, args, owner, repo)
+                tool_results.append(
+                    types.Part.from_function_response(name=name, response={"result": result})
+                )
 
-                    elif item.name == "read_file":
-                        yield f"data: 📄 Reading {json.loads(item.arguments)['path']}...\n\n"
-
-                    elif item.name == "search_code":
-                        yield f"data: 🔎 Searching code...\n\n"
-
-                    args = json.loads(item.arguments)
-
-                    result = await execute_tool(
-                        item.name,
-                        args,
-                        owner,
-                        repo
-                    )
-
-                    messages.append({
-                        "type": "function_call_output",
-                        "call_id": item.call_id,
-                        "output": result
-                    })
-
-            await asyncio.sleep(0.2)
+            # Send tool results and get next response
+            response = chat.send_message(tool_results)
+            await asyncio.sleep(0.1)
 
         yield "data: ❌ Step limit reached\n\n"
 
